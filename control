@@ -1,9 +1,9 @@
 Package: com.qn.plzkeeplpm
 Name: PleaseKeepLPM
-Version: 1.0.2
+Version: 1.1.0
 Architecture: iphoneos-arm
 Description: Keep Low Power Mode on when charging past 80%
-Maintainer: Qn
-Author: Qn
+Maintainer: Qn <qnblackcat@gmail.com>
+Author: Qn <qnblackcat@gmail.com>
 Section: Tweaks
 Depends: mobilesubstrate (>= 0.9.5000), firmware (>= 15.0)

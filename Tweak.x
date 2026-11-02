@@ -39,17 +39,24 @@
 #define PLKLog(fmt, ...) do {} while (0)
 #endif
 
+// Runs in PowerUIAgent: the "Low Power Mode turned off, charged above 80%" banner is posted from
+// here. We turn LPM back on right away, so the banner is stale; never show it.
+%group PowerUIAgent
+%hook PowerUILPMNotifier
+- (void)displayAutoDisabledNotification {
+	PLKLog(@"suppressed auto-disabled notification");
+}
+%end
+%end
+
 static void reenableLPM(void) {
 	PLKLog(@"auto_disabled received, re-enabling");
-	Class cls = NSClassFromString(@"_PMLowPowerMode");
-	if (![cls respondsToSelector:@selector(sharedInstance)]) {
-		PLKLog(@"no sharedInstance");
-		return;
-	}
+	// The API was verified once in %ctor
+	_PMLowPowerMode *lpm = [%c(_PMLowPowerMode) sharedInstance];
 
 	// The completion must be non-nil, otherwise NSXPCConnection throws and SpringBoard crashes
 	@try {
-		[[cls sharedInstance] setPowerMode:1 fromSource:KEEPLPM_SOURCE withCompletion:^(BOOL success, NSError *error) {
+		[lpm setPowerMode:1 fromSource:KEEPLPM_SOURCE withCompletion:^(BOOL success, NSError *error) {
 			PLKLog(@"completion success=%d error=%@", success, error);
 		}];
 	} @catch (NSException *e) {
@@ -58,9 +65,15 @@ static void reenableLPM(void) {
 }
 
 %ctor {
+	if ([NSProcessInfo.processInfo.processName isEqualToString:@"PowerUIAgent"]) {
+		%init(PowerUIAgent);
+		return;
+	}
+
 	dlopen("/System/Library/PrivateFrameworks/LowPowerMode.framework/LowPowerMode", RTLD_LAZY);
-	Class cls = NSClassFromString(@"_PMLowPowerMode");
-	if (![cls instancesRespondToSelector:@selector(setPowerMode:fromSource:withCompletion:)]) {
+	Class cls = %c(_PMLowPowerMode);
+	if (![cls respondsToSelector:@selector(sharedInstance)] ||
+		![cls instancesRespondToSelector:@selector(setPowerMode:fromSource:withCompletion:)]) {
 		PLKLog(@"API not found, disabled (cls=%@)", cls);
 		return;
 	}
